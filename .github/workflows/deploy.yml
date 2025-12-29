@@ -67,6 +67,28 @@ jobs:
           
           echo "Patched QR code to: ${FULL_URL}"
       
+      - name: Patch page title
+        run: |
+          cd docs
+          APP_NAME="${{ steps.env.outputs.app_name }}"
+          ENV="${{ steps.env.outputs.env }}"
+          
+          # Patch <title> tag
+          sed -i "s|<title>Pyro Logger</title>|<title>${APP_NAME}</title>|g" index.html
+          
+          # Patch meta tags
+          sed -i "s|content=\"Pyro Logger\"|content=\"${APP_NAME}\"|g" index.html
+          
+          # Patch main visible app title
+          sed -i "s|<h1 class=\"app-title\">Pyro Logger</h1>|<h1 class=\"app-title\">${APP_NAME}</h1>|g" index.html
+          
+          # For dev, prefix bug report subject with [DEV]
+          if [ "$ENV" = "dev" ]; then
+            sed -i "s|Bug Report - Pyro Logger|[DEV] Bug Report - Pyro Logger|g" index.html
+          fi
+          
+          echo "Patched page title to: ${APP_NAME}"
+      
       - name: Patch service worker
         run: |
           cd docs
