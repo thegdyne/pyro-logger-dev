@@ -1566,8 +1566,9 @@
         // BUG REPORTER
         // ============================================
         
-        // Configuration - Replace with your Formspree form ID
-        const FORMSPREE_ID = 'xzdbyenn';
+        // Configuration - Auto-detect environment
+        const IS_DEV = window.location.hostname.includes('pyro-logger-dev');
+        const FORMSPREE_ID = IS_DEV ? 'xnjqlbnb' : 'xzdbyenn';
         const FORMSPREE_ENDPOINT = `https://formspree.io/f/${FORMSPREE_ID}`;
         const APP_VERSION = '1.0.0';
         
