@@ -1843,46 +1843,61 @@ ${Object.entries(diagnostics).map(([k, v]) => `${k}: ${typeof v === 'object' ? J
             
             // Track install (only in production)
             if (!IS_DEV) {
-                try {
-                    // Get or create unique device ID
-                    let deviceId = localStorage.getItem('pyro_device_id');
-                    if (!deviceId) {
-                        deviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-                        localStorage.setItem('pyro_device_id', deviceId);
-                    }
-                    
-                    // Don't track if already tracked this device
-                    if (localStorage.getItem('pyro_install_tracked')) {
-                        return;
-                    }
-                    
-                    // Detect device type
-                    const ua = navigator.userAgent;
-                    let deviceType = 'Unknown';
-                    if (/iPhone|iPad|iPod/.test(ua)) deviceType = 'iOS';
-                    else if (/Android/.test(ua)) deviceType = 'Android';
-                    else if (/Windows/.test(ua)) deviceType = 'Windows';
-                    else if (/Mac/.test(ua)) deviceType = 'Mac';
-                    
-                    // Send to tracking form
-                    fetch(INSTALL_TRACKING_ENDPOINT, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            device_id: deviceId,
-                            installed_at: new Date().toISOString(),
-                            device_type: deviceType,
-                            app_version: APP_VERSION
-                        })
-                    }).then(() => {
-                        localStorage.setItem('pyro_install_tracked', 'true');
-                        console.log('Install tracked');
-                    }).catch(err => console.log('Install tracking failed:', err));
-                } catch (e) {
-                    console.log('Install tracking error:', e);
-                }
+                trackInstall('appinstalled');
             }
         });
+        
+        // Track install function (shared between Android appinstalled and iOS standalone detection)
+        function trackInstall(source) {
+            try {
+                // Get or create unique device ID
+                let deviceId = localStorage.getItem('pyro_device_id');
+                if (!deviceId) {
+                    deviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+                    localStorage.setItem('pyro_device_id', deviceId);
+                }
+                
+                // Don't track if already tracked this device
+                if (localStorage.getItem('pyro_install_tracked')) {
+                    return;
+                }
+                
+                // Detect device type
+                const ua = navigator.userAgent;
+                let deviceType = 'Unknown';
+                if (/iPhone|iPad|iPod/.test(ua)) deviceType = 'iOS';
+                else if (/Android/.test(ua)) deviceType = 'Android';
+                else if (/Windows/.test(ua)) deviceType = 'Windows';
+                else if (/Mac/.test(ua)) deviceType = 'Mac';
+                
+                // Send to tracking form
+                fetch(INSTALL_TRACKING_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: deviceId,
+                        installed_at: new Date().toISOString(),
+                        device_type: deviceType,
+                        app_version: APP_VERSION,
+                        source: source
+                    })
+                }).then(() => {
+                    localStorage.setItem('pyro_install_tracked', 'true');
+                    console.log('Install tracked via ' + source);
+                }).catch(err => console.log('Install tracking failed:', err));
+            } catch (e) {
+                console.log('Install tracking error:', e);
+            }
+        }
+        
+        // iOS standalone detection - fires when app is launched from home screen
+        if (!IS_DEV && window.matchMedia('(display-mode: standalone)').matches) {
+            trackInstall('standalone');
+        }
+        // Also check iOS-specific standalone flag
+        if (!IS_DEV && window.navigator.standalone === true) {
+            trackInstall('ios-standalone');
+        }
     </script>
 </body>
 </html>
