@@ -148,11 +148,7 @@
         }
         
         .char-count.error {
-            color: #ffffff;
-            background-color: var(--danger);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: bold;
+            color: var(--danger);
         }
         
         .radio-group {
@@ -794,18 +790,18 @@
             <h2>Work Description</h2>
             <div class="form-group">
                 <label for="effect">Describe Effect Required</label>
-                <textarea id="effect" maxlength="325" data-max-lines="5"></textarea>
-                <div class="char-count" id="effect-count">0 / 5 lines</div>
+                <textarea id="effect" maxlength="500"></textarea>
+                <div class="char-count" id="effect-count">0 / 500</div>
             </div>
             <div class="form-group">
                 <label for="explosives">Type, Make and Amount of Explosives/Pyrotechnics Used</label>
-                <textarea id="explosives" maxlength="1430" data-max-lines="15" data-expand-lines="22"></textarea>
-                <div class="char-count" id="explosives-count">0 / 15 lines</div>
+                <textarea id="explosives" maxlength="500"></textarea>
+                <div class="char-count" id="explosives-count">0 / 500</div>
             </div>
             <div class="form-group">
                 <label for="involvement">Your Involvement in Handling and Type of Work Carried Out</label>
-                <textarea id="involvement" maxlength="325" data-max-lines="5"></textarea>
-                <div class="char-count" id="involvement-count">0 / 5 lines</div>
+                <textarea id="involvement" maxlength="500"></textarea>
+                <div class="char-count" id="involvement-count">0 / 500</div>
             </div>
         </div>
         
@@ -832,48 +828,10 @@
         ['effect', 'explosives', 'involvement'].forEach(id => {
             const textarea = document.getElementById(id);
             const counter = document.getElementById(id + '-count');
-            const maxLines = parseInt(textarea.dataset.maxLines) || 5;
-            const expandLines = parseInt(textarea.dataset.expandLines) || maxLines;
-            const charsPerLine = 65;
-            
             textarea.addEventListener('input', function() {
-                const text = this.value;
-                // Count lines: explicit newlines + wrapped lines
-                let totalLines = 0;
-                if (text.length === 0) {
-                    totalLines = 0;
-                } else {
-                    const explicitLines = text.split('\n');
-                    explicitLines.forEach(line => {
-                        if (line.length === 0) {
-                            totalLines += 1; // Empty line still counts as 1
-                        } else {
-                            totalLines += Math.ceil(line.length / charsPerLine);
-                        }
-                    });
-                }
-                
-                // Update counter
-                const displayMax = (id === 'explosives' && totalLines > maxLines) ? expandLines : maxLines;
-                
-                // Warning/error states with clear messages
-                const pct = totalLines / expandLines;
-                if (totalLines > expandLines) {
-                    counter.className = 'char-count error';
-                    counter.textContent = `${totalLines} / ${expandLines} lines - TOO LONG! Remove ${totalLines - expandLines} line(s) to generate PDF.`;
-                } else if (totalLines === expandLines) {
-                    counter.className = 'char-count warning';
-                    counter.textContent = `${totalLines} / ${expandLines} lines - AT LIMIT`;
-                } else if (totalLines > maxLines && id === 'explosives') {
-                    counter.className = 'char-count warning';
-                    counter.textContent = `${totalLines} / ${expandLines} lines (expanded - ${expandLines - totalLines} left)`;
-                } else if (pct > 0.8) {
-                    counter.className = 'char-count warning';
-                    counter.textContent = `${totalLines} / ${displayMax} lines (${displayMax - totalLines} left)`;
-                } else {
-                    counter.className = 'char-count';
-                    counter.textContent = `${totalLines} / ${displayMax} lines`;
-                }
+                const len = this.value.length;
+                counter.textContent = `${len} / 500`;
+                counter.className = 'char-count' + (len > 450 ? (len >= 500 ? ' error' : ' warning') : '');
             });
         });
         
@@ -1012,34 +970,8 @@
          * - Right edge: ~546pt
          */
         async function generatePDF() {
-            try {
-                const { jsPDF } = window.jspdf;
-                if (!jsPDF) {
-                    alert('Error: PDF library not loaded. Please refresh the page.');
-                    return;
-                }
-                const data = getFormData();
-                
-                // Validate line limits before generating
-                const charsPerLine = 65;
-                function countLines(text) {
-                    if (!text) return 0;
-                    return text.split('\n').reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
-                }
-                
-                const effectLines = countLines(data.effect);
-                const explosivesLines = countLines(data.explosives);
-                const involvementLines = countLines(data.involvement);
-                
-                const errors = [];
-                if (effectLines > 5) errors.push(`Effect description: ${effectLines} lines (max 5)`);
-                if (explosivesLines > 22) errors.push(`Explosives list: ${explosivesLines} lines (max 22)`);
-                if (involvementLines > 5) errors.push(`Your involvement: ${involvementLines} lines (max 5)`);
-                
-                if (errors.length > 0) {
-                    alert('⚠️ Cannot generate PDF\n\nText too long in:\n• ' + errors.join('\n• ') + '\n\nPlease shorten the text in the red fields and try again.');
-                    return;
-                }
+            const { jsPDF } = window.jspdf;
+            const data = getFormData();
             
             // Create PDF in points, US Letter size
             const doc = new jsPDF({
@@ -1168,12 +1100,7 @@
             // Explosives used
             doc.text('Please state type, make and amount of explosives and pyrotechnics used:', leftMargin, y);
             y += 5;
-            // Calculate box height based on content (base 205pt, max 305pt)
-            const explosivesLines = data.explosives ? Math.max(1, data.explosives.split('\n').reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / 65)), 0)) : 0;
-            const explosivesBaseHeight = 205;
-            const explosivesMaxHeight = 305;
-            const explosivesNeededHeight = Math.max(explosivesBaseHeight, Math.min(explosivesMaxHeight, explosivesLines * 14 + 10));
-            drawTextArea(doc, leftMargin, y, contentWidth, explosivesNeededHeight, data.explosives);
+            drawTextArea(doc, leftMargin, y, contentWidth, 205, data.explosives);
             
             // === PAGE 2 ===
             doc.addPage();
@@ -1185,8 +1112,8 @@
             y += 14;
             doc.text('of work carried out:', leftMargin, y);
             y += 5;
-            drawTextArea(doc, leftMargin, y, contentWidth, 80, data.involvement);
-            y += 95;
+            drawTextArea(doc, leftMargin, y, contentWidth, 100, data.involvement);
+            y += 115;
             
             // Confirmation statement
             doc.text('I confirm that the above information is an accurate record of the applicants\' pyrotechnic', leftMargin, y);
@@ -1355,10 +1282,6 @@
                 </div>
             `;
             document.body.appendChild(modal);
-            } catch (err) {
-                alert('Error generating PDF: ' + err.message + '\n\nPlease try refreshing the page.');
-                console.error('PDF generation error:', err);
-            }
         }
         
         // Helper: Draw input box with optional text - FIXED for visible borders
