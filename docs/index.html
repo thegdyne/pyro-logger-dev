@@ -148,7 +148,11 @@
         }
         
         .char-count.error {
-            color: var(--danger);
+            color: #ffffff;
+            background-color: var(--danger);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
         }
         
         .radio-group {
@@ -843,21 +847,24 @@
                 
                 // Update counter
                 const displayMax = (id === 'explosives' && totalLines > maxLines) ? expandLines : maxLines;
-                counter.textContent = `${totalLines} / ${displayMax} lines`;
                 
-                // Warning/error states
+                // Warning/error states with clear messages
                 const pct = totalLines / expandLines;
                 if (totalLines > expandLines) {
                     counter.className = 'char-count error';
-                } else if (totalLines > maxLines) {
+                    counter.textContent = `${totalLines} / ${expandLines} lines - TOO LONG! Remove ${totalLines - expandLines} line(s) to generate PDF.`;
+                } else if (totalLines === expandLines) {
                     counter.className = 'char-count warning';
-                    if (id === 'explosives') {
-                        counter.textContent = `${totalLines} / ${expandLines} lines (expanded)`;
-                    }
+                    counter.textContent = `${totalLines} / ${expandLines} lines - AT LIMIT`;
+                } else if (totalLines > maxLines && id === 'explosives') {
+                    counter.className = 'char-count warning';
+                    counter.textContent = `${totalLines} / ${expandLines} lines (expanded - ${expandLines - totalLines} left)`;
                 } else if (pct > 0.8) {
                     counter.className = 'char-count warning';
+                    counter.textContent = `${totalLines} / ${displayMax} lines (${displayMax - totalLines} left)`;
                 } else {
                     counter.className = 'char-count';
+                    counter.textContent = `${totalLines} / ${displayMax} lines`;
                 }
             });
         });
@@ -997,8 +1004,34 @@
          * - Right edge: ~546pt
          */
         async function generatePDF() {
-            const { jsPDF } = window.jspdf;
-            const data = getFormData();
+            try {
+                const { jsPDF } = window.jspdf;
+                if (!jsPDF) {
+                    alert('Error: PDF library not loaded. Please refresh the page.');
+                    return;
+                }
+                const data = getFormData();
+                
+                // Validate line limits before generating
+                const charsPerLine = 65;
+                function countLines(text) {
+                    if (!text) return 0;
+                    return text.split('\n').reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / charsPerLine)), 0);
+                }
+                
+                const effectLines = countLines(data.effect);
+                const explosivesLines = countLines(data.explosives);
+                const involvementLines = countLines(data.involvement);
+                
+                const errors = [];
+                if (effectLines > 5) errors.push(`Effect description: ${effectLines} lines (max 5)`);
+                if (explosivesLines > 22) errors.push(`Explosives list: ${explosivesLines} lines (max 22)`);
+                if (involvementLines > 5) errors.push(`Your involvement: ${involvementLines} lines (max 5)`);
+                
+                if (errors.length > 0) {
+                    alert('⚠️ Cannot generate PDF\n\nText too long in:\n• ' + errors.join('\n• ') + '\n\nPlease shorten the text in the red fields and try again.');
+                    return;
+                }
             
             // Create PDF in points, US Letter size
             const doc = new jsPDF({
@@ -1314,6 +1347,10 @@
                 </div>
             `;
             document.body.appendChild(modal);
+            } catch (err) {
+                alert('Error generating PDF: ' + err.message + '\n\nPlease try refreshing the page.');
+                console.error('PDF generation error:', err);
+            }
         }
         
         // Helper: Draw input box with optional text - FIXED for visible borders
