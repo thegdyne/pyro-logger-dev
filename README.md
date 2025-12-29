@@ -22,6 +22,7 @@ Weekly Pyrotechnic Work Experience Log for the Joint Industry SFX Grading Scheme
 - 📄 Generate official PDF forms
 - 💾 Saves entries locally on your device
 - 📴 Works offline once installed
+- 🐛 Report issues directly from the app
 
 ## How to Use
 
