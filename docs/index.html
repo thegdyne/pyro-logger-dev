@@ -1215,7 +1215,8 @@
             // Save - cross-platform with native app support
             const safeName = (data.name || 'unknown').replace(/[^a-zA-Z0-9]/g, '-').substring(0, 20);
             const safeDate = data.date || 'undated';
-            const filename = `PyroLog-${safeName}-${safeDate}.pdf`;
+            const time = new Date().toTimeString().slice(0,5).replace(':', '');
+            const filename = `PyroLog-${safeName}-${safeDate}-${time}.pdf`;
             const pdfBase64 = doc.output('datauristring').split(',')[1];
             const pdfBlob = doc.output('blob');
             
