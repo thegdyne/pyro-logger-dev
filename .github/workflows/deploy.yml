@@ -1,0 +1,107 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Detect environment
+        id: env
+        run: |
+          if [[ "${{ github.repository }}" == *"-dev"* ]]; then
+            echo "env=dev" >> $GITHUB_OUTPUT
+            echo "app_name=Pyro Logger DEV" >> $GITHUB_OUTPUT
+            echo "short_name=PyroLog DEV" >> $GITHUB_OUTPUT
+            echo "base_path=/pyro-logger-dev" >> $GITHUB_OUTPUT
+          else
+            echo "env=prod" >> $GITHUB_OUTPUT
+            echo "app_name=Pyro Logger" >> $GITHUB_OUTPUT
+            echo "short_name=PyroLog" >> $GITHUB_OUTPUT
+            echo "base_path=/pyro-logger" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Patch manifest.json
+        run: |
+          cd docs
+          
+          # Update manifest with environment-specific values
+          jq --arg name "${{ steps.env.outputs.app_name }}" \
+             --arg short "${{ steps.env.outputs.short_name }}" \
+             --arg base "${{ steps.env.outputs.base_path }}" \
+             '.name = $name | 
+              .short_name = $short | 
+              .start_url = ($base + "/") | 
+              .scope = ($base + "/")' \
+             manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+          
+          echo "Patched manifest.json for ${{ steps.env.outputs.env }}:"
+          cat manifest.json
+      
+      - name: Add DEV banner to icons
+        if: steps.env.outputs.env == 'dev'
+        run: |
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          
+          cd docs/icons
+          
+          for icon in icon-*.png; do
+            size=$(identify -format "%w" "$icon")
+            banner_height=$((size / 5))
+            font_size=$((size / 8))
+            
+            convert "$icon" \
+              -fill 'rgba(234, 88, 12, 0.9)' \
+              -draw "rectangle 0,0 ${size},${banner_height}" \
+              -fill white \
+              -font DejaVu-Sans-Bold \
+              -pointsize ${font_size} \
+              -gravity North \
+              -annotate +0+$((banner_height / 6)) "DEV" \
+              "$icon"
+            
+            echo "Patched $icon"
+          done
+          
+          # Also patch apple-touch-icon
+          if [ -f apple-touch-icon.png ]; then
+            size=$(identify -format "%w" apple-touch-icon.png)
+            banner_height=$((size / 5))
+            font_size=$((size / 8))
+            
+            convert apple-touch-icon.png \
+              -fill 'rgba(234, 88, 12, 0.9)' \
+              -draw "rectangle 0,0 ${size},${banner_height}" \
+              -fill white \
+              -font DejaVu-Sans-Bold \
+              -pointsize ${font_size} \
+              -gravity North \
+              -annotate +0+$((banner_height / 6)) "DEV" \
+              apple-touch-icon.png
+          fi
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
