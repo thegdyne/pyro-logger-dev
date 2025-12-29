@@ -1570,6 +1570,7 @@
         const IS_DEV = window.location.hostname.includes('pyro-logger-dev');
         const FORMSPREE_ID = IS_DEV ? 'xnjqlbnb' : 'xzdbyenn';
         const FORMSPREE_ENDPOINT = `https://formspree.io/f/${FORMSPREE_ID}`;
+        const INSTALL_TRACKING_ENDPOINT = 'https://formspree.io/f/meeqvbgl';
         const APP_VERSION = '1.0.0';
         
         // Collect diagnostic information
@@ -1839,6 +1840,48 @@ ${Object.entries(diagnostics).map(([k, v]) => `${k}: ${typeof v === 'object' ? J
         window.addEventListener('appinstalled', () => {
             console.log('PWA was installed');
             deferredPrompt = null;
+            
+            // Track install (only in production)
+            if (!IS_DEV) {
+                try {
+                    // Get or create unique device ID
+                    let deviceId = localStorage.getItem('pyro_device_id');
+                    if (!deviceId) {
+                        deviceId = 'dev_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+                        localStorage.setItem('pyro_device_id', deviceId);
+                    }
+                    
+                    // Don't track if already tracked this device
+                    if (localStorage.getItem('pyro_install_tracked')) {
+                        return;
+                    }
+                    
+                    // Detect device type
+                    const ua = navigator.userAgent;
+                    let deviceType = 'Unknown';
+                    if (/iPhone|iPad|iPod/.test(ua)) deviceType = 'iOS';
+                    else if (/Android/.test(ua)) deviceType = 'Android';
+                    else if (/Windows/.test(ua)) deviceType = 'Windows';
+                    else if (/Mac/.test(ua)) deviceType = 'Mac';
+                    
+                    // Send to tracking form
+                    fetch(INSTALL_TRACKING_ENDPOINT, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            device_id: deviceId,
+                            installed_at: new Date().toISOString(),
+                            device_type: deviceType,
+                            app_version: APP_VERSION
+                        })
+                    }).then(() => {
+                        localStorage.setItem('pyro_install_tracked', 'true');
+                        console.log('Install tracked');
+                    }).catch(err => console.log('Install tracking failed:', err));
+                } catch (e) {
+                    console.log('Install tracking error:', e);
+                }
+            }
         });
     </script>
 </body>
